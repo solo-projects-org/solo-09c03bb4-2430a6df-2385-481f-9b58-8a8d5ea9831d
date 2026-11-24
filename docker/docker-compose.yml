@@ -12,6 +12,13 @@ services:
       WEIGH_TIME_COLUMN: "weigh_time"
       WEIGH_INPUT_DIR: /data/input
       WEIGH_OUTPUT_DIR: /data/output
+      # 净重批次：票号/箱号/票种/重量列与毛票皮票取值
+      WEIGH_TICKET_ID_COLUMN: "ticket_id"
+      WEIGH_CONTAINER_COLUMN: "container_no"
+      WEIGH_TICKET_TYPE_COLUMN: "ticket_type"
+      WEIGH_GROSS_TYPE_VALUE: "gross"
+      WEIGH_TARE_TYPE_VALUE: "tare"
+      WEIGH_WEIGHT_COLUMN: "weight_kg"
     volumes:
       # 原始 Parquet 挂载为只读，原档绝不动
       - ../data_in:/data/input:ro

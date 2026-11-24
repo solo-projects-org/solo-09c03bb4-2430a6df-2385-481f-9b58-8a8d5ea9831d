@@ -16,9 +16,7 @@ from __future__ import annotations
 import contextlib
 import dataclasses
 import datetime as _dt
-import fcntl
 import os
-import time
 from pathlib import Path
 
 import pyarrow as pa
@@ -26,8 +24,9 @@ import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
 from .config import Settings
+from .locking import FileLock, LockTimeout
 from .manifest import DayFile, Manifest, ManifestStore
-from .timeutil import TimeColumnError, date_to_str, to_utc_date_array
+from .timeutil import date_to_str, to_utc_date_array
 
 # 页脚判定三态
 SAME_DAY = "same_day"
@@ -54,31 +53,12 @@ class PublishResult:
     outcomes: list[FileOutcome]
 
 
-class _FileLock:
-    def __init__(self, path: Path, timeout: float):
-        self._path = path
-        self._timeout = timeout
-        self._fd: int | None = None
-
-    def __enter__(self) -> "_FileLock":
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._fd = os.open(self._path, os.O_CREAT | os.O_RDWR, 0o644)
-        deadline = time.monotonic() + max(self._timeout, 0.0)
-        while True:
-            try:
-                fcntl.flock(self._fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                return self
-            except BlockingIOError:
-                if time.monotonic() >= deadline:
-                    raise PublishError("另一个发布任务正在执行，获取锁超时")
-                time.sleep(0.1)
-
-    def __exit__(self, *exc) -> None:
-        assert self._fd is not None
-        with contextlib.suppress(OSError):
-            fcntl.flock(self._fd, fcntl.LOCK_UN)
-        os.close(self._fd)
-        self._fd = None
+class _PublishLock(FileLock):
+    def __enter__(self) -> "_PublishLock":
+        try:
+            return super().__enter__()
+        except LockTimeout:
+            raise PublishError("另一个发布任务正在执行，获取锁超时")
 
 
 # ---------------------------------------------------------------- 页脚判定
@@ -326,7 +306,11 @@ def publish(input_files: list[str], settings: Settings) -> PublishResult:
     abs_paths = _validate_inputs(input_files, settings)
     _check_same_schema(abs_paths, settings)
 
-    with _FileLock(store.lock_path, settings.lock_timeout_seconds):
+    with _PublishLock(
+        store.lock_path,
+        settings.lock_timeout_seconds,
+        "另一个发布任务正在执行，获取锁超时",
+    ):
         # 锁内重新读取版本号，避免并发发布撞版本目录
         version = store.next_version()
         staged_dir = store.staged_path_for(version)

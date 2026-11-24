@@ -19,6 +19,17 @@ class Settings:
     time_string_format: str | None
     # 发布时是否在同一进程内串行执行（测试用）
     lock_timeout_seconds: float
+    # 净重批次：票号列名
+    ticket_id_column: str
+    # 净重批次：箱号列名
+    container_column: str
+    # 净重批次：票种列名（毛票/皮票）
+    ticket_type_column: str
+    # 净重批次：票种列里毛票/皮票的取值
+    gross_type_value: str
+    tare_type_value: str
+    # 净重批次：重量列名（毛票存毛重、皮票存皮重）
+    weight_column: str
 
     @staticmethod
     def from_env() -> "Settings":
@@ -30,4 +41,12 @@ class Settings:
             time_column=os.environ.get("WEIGH_TIME_COLUMN", "weigh_time"),
             time_string_format=os.environ.get("WEIGH_TIME_STRING_FORMAT") or None,
             lock_timeout_seconds=float(os.environ.get("WEIGH_LOCK_TIMEOUT", "10")),
+            ticket_id_column=os.environ.get("WEIGH_TICKET_ID_COLUMN", "ticket_id"),
+            container_column=os.environ.get("WEIGH_CONTAINER_COLUMN", "container_no"),
+            ticket_type_column=os.environ.get(
+                "WEIGH_TICKET_TYPE_COLUMN", "ticket_type"
+            ),
+            gross_type_value=os.environ.get("WEIGH_GROSS_TYPE_VALUE", "gross"),
+            tare_type_value=os.environ.get("WEIGH_TARE_TYPE_VALUE", "tare"),
+            weight_column=os.environ.get("WEIGH_WEIGHT_COLUMN", "weight_kg"),
         )
